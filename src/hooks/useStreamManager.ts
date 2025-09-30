@@ -69,6 +69,7 @@ export const useStreamManager = () => {
         rtmp_url: selectedEndpoint.rtmp_url,
         stream_key: selectedEndpoint.stream_key,
         password: meetingDetails.moderator_pw,
+        platform: selectedEndpoint.title,
       };
       
       console.log("Starting stream with payload:", payload);

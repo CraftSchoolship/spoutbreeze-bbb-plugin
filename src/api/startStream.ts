@@ -5,6 +5,7 @@ export interface BroadcasterReq {
     rtmp_url: string;
     stream_key: string;
     password: string;
+    platform: string;
 }
 
 const API_URL = process.env.API_URL;
