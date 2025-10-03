@@ -2,6 +2,8 @@ import { useState } from "react";
 import { fetchStreamEndpoints, StreamEndpointsRes } from "../api/streamEndpoints";
 import { fetchMeetingDetails, MeetingDetailsRes } from "../api/meetingDetails";
 import { startStream } from "../api/startStream";
+import { fetchBroadcastStatus } from "../api/broadcastStatus";
+import { stopStream } from "../api/stopStream";
 import { pluginLogger } from "bigbluebutton-html-plugin-sdk";
 
 export const useStreamManager = () => {
@@ -10,6 +12,12 @@ export const useStreamManager = () => {
   const [streamEndpoints, setStreamEndpoints] = useState<StreamEndpointsRes[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // New state
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(
+    () => localStorage.getItem("current_stream_id")
+  );
+  const [isStreaming, setIsStreaming] = useState<boolean>(!!localStorage.getItem("current_stream_id"));
 
   const loadStreamData = async (internalMeetingId: string) => {
     setIsLoading(true);
@@ -43,26 +51,52 @@ export const useStreamManager = () => {
     }
   };
 
+  const pollStatus = async (streamId: string) => {
+    let attempts = 0;
+    const maxAttempts = 30; // ~150s if 5s interval
+    const intervalMs = 5000;
+
+    const loop = async () => {
+      attempts++;
+      try {
+        const status = await fetchBroadcastStatus(streamId);
+        if (status.status === "running") {
+          setStatusMessage(`Stream running (pod: ${status.pod_name})`);
+          pluginLogger.info("Broadcast running", status);
+          return;
+        }
+        if (status.status === "failed") {
+          setStatusMessage(`Stream failed: ${status.error || "unknown error"}`);
+          pluginLogger.error("Broadcast failed", status);
+          return;
+        }
+        if (attempts < maxAttempts) {
+          setTimeout(loop, intervalMs);
+        } else {
+          setStatusMessage("Timeout waiting for stream to start");
+        }
+      } catch (e) {
+        setStatusMessage("Error polling stream status");
+        pluginLogger.error("Polling error", e);
+      }
+    };
+    loop();
+  };
+
   const handleStreamStart = async () => {
     if (!selectedEndpointId) {
       setStatusMessage("Please select a stream endpoint");
       return;
     }
-
     if (!meetingDetails) {
       setStatusMessage("Meeting details not loaded");
       return;
     }
-
-    const selectedEndpoint = streamEndpoints.find(
-      (endpoint) => endpoint.id === selectedEndpointId
-    );
-
+    const selectedEndpoint = streamEndpoints.find(e => e.id === selectedEndpointId);
     if (!selectedEndpoint) {
       setStatusMessage("Invalid stream endpoint selected");
       return;
     }
-
     try {
       const payload = {
         meeting_id: meetingDetails.meeting_id,
@@ -71,14 +105,35 @@ export const useStreamManager = () => {
         password: meetingDetails.moderator_pw,
         platform: selectedEndpoint.title,
       };
-      
-      console.log("Starting stream with payload:", payload);
-      await startStream(payload);
-      setStatusMessage("Stream started successfully");
-      pluginLogger.info("Stream started successfully");
-    } catch (error) {
+      const res = await startStream(payload);
+      const sid = res.stream.stream_id;
+      setCurrentStreamId(sid);
+      setIsStreaming(true);
+      localStorage.setItem("current_stream_id", sid);
+      setStatusMessage(`Broadcast started (stream_id: ${sid})`);
+      pollStatus(sid);
+    } catch (error: any) {
       setStatusMessage("Error starting stream");
       pluginLogger.error("Error starting stream:", error);
+    }
+  };
+
+  const handleStreamStop = async () => {
+    const sid = currentStreamId || localStorage.getItem("current_stream_id");
+    if (!sid) {
+      setStatusMessage("No active stream to stop");
+      return;
+    }
+    try {
+      await stopStream(sid);
+      setStatusMessage("Stream stopped");
+      setIsStreaming(false);
+      setCurrentStreamId(null);
+      localStorage.removeItem("current_stream_id");
+      localStorage.removeItem("current_stream_status");
+    } catch (e: any) {
+      setStatusMessage("Error stopping stream");
+      pluginLogger.error("Stop stream failed", e);
     }
   };
 
@@ -88,8 +143,11 @@ export const useStreamManager = () => {
     streamEndpoints,
     selectedEndpointId,
     isLoading,
+    isStreaming,
+    currentStreamId,
     setSelectedEndpointId,
     loadStreamData,
     handleStreamStart,
+    handleStreamStop,
   };
 };

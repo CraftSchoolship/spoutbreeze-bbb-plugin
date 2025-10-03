@@ -13,6 +13,7 @@ import { useStreamManager } from "../../hooks/useStreamManager";
 import { useChatProcessor } from "../../hooks/useChatProcessor";
 import { StreamModal } from "./StreamModal";
 import "./style.css";
+import { stopStream } from "../../api/stopStream";
 
 function SampleStreamButtonPluginItem({
   pluginUuid: uuid,
@@ -34,6 +35,8 @@ function SampleStreamButtonPluginItem({
     setSelectedEndpointId,
     loadStreamData,
     handleStreamStart,
+    handleStreamStop,
+    isStreaming,
   } = useStreamManager();
 
   useChatProcessor(pluginApi, messages, sendMessage);
@@ -62,20 +65,36 @@ function SampleStreamButtonPluginItem({
 
   useEffect(() => {
     if (currentUser?.presenter) {
-      pluginApi.setActionButtonDropdownItems([
+      const items = [
         new ActionButtonDropdownSeparator(),
         new ActionButtonDropdownOption({
           label: "Start Stream",
           icon: "play",
           tooltip: "Start Stream",
           allowed: true,
+          // disabled: isStreaming,
           onClick: () => {
             handleStartStreamButtonClick();
           },
         }),
-      ]);
+      ];
+      if (isStreaming) {
+        items.push(
+          new ActionButtonDropdownSeparator(),
+          new ActionButtonDropdownOption({
+            label: "Stop Stream",
+            icon: "stop",
+            tooltip: "Stop current stream",
+            allowed: true,
+            onClick: () => {
+              handleStreamStop();
+            },
+          })
+        );
+      }
+      pluginApi.setActionButtonDropdownItems(items);
     }
-  }, [currentUser]);
+  }, [currentUser, isStreaming, pluginApi]);
 
   return (
     <StreamModal
