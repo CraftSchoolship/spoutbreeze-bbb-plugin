@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { fetchStreamEndpoints, StreamEndpointsRes } from "../api/streamEndpoints";
+import {
+  fetchStreamEndpoints,
+  StreamEndpointsRes,
+} from "../api/streamEndpoints";
 import { fetchMeetingDetails, MeetingDetailsRes } from "../api/meetingDetails";
 import { startStream } from "../api/startStream";
 import { fetchBroadcastStatus } from "../api/broadcastStatus";
@@ -7,17 +10,22 @@ import { stopStream } from "../api/stopStream";
 import { pluginLogger } from "bigbluebutton-html-plugin-sdk";
 
 export const useStreamManager = () => {
-  const [meetingDetails, setMeetingDetails] = useState<MeetingDetailsRes | null>(null);
+  const [meetingDetails, setMeetingDetails] =
+    useState<MeetingDetailsRes | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("");
-  const [streamEndpoints, setStreamEndpoints] = useState<StreamEndpointsRes[]>([]);
+  const [streamEndpoints, setStreamEndpoints] = useState<StreamEndpointsRes[]>(
+    []
+  );
   const [selectedEndpointId, setSelectedEndpointId] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // New state
-  const [currentStreamId, setCurrentStreamId] = useState<string | null>(
-    () => localStorage.getItem("current_stream_id")
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(() =>
+    localStorage.getItem("current_stream_id")
   );
-  const [isStreaming, setIsStreaming] = useState<boolean>(!!localStorage.getItem("current_stream_id"));
+  const [isStreaming, setIsStreaming] = useState<boolean>(
+    !!localStorage.getItem("current_stream_id")
+  );
 
   const loadStreamData = async (internalMeetingId: string) => {
     setIsLoading(true);
@@ -31,12 +39,12 @@ export const useStreamManager = () => {
       // Fetch both meeting details and stream endpoints concurrently
       const [meetingDetailsResponse, endpointsResponse] = await Promise.all([
         fetchMeetingDetails(internalMeetingId),
-        fetchStreamEndpoints()
+        fetchStreamEndpoints(),
       ]);
 
       setMeetingDetails(meetingDetailsResponse);
       setStreamEndpoints(endpointsResponse);
-      
+
       if (endpointsResponse.length > 0) {
         setSelectedEndpointId(endpointsResponse[0].id);
       }
@@ -92,7 +100,9 @@ export const useStreamManager = () => {
       setStatusMessage("Meeting details not loaded");
       return;
     }
-    const selectedEndpoint = streamEndpoints.find(e => e.id === selectedEndpointId);
+    const selectedEndpoint = streamEndpoints.find(
+      (e) => e.id === selectedEndpointId
+    );
     if (!selectedEndpoint) {
       setStatusMessage("Invalid stream endpoint selected");
       return;

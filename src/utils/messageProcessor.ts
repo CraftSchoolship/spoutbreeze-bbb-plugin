@@ -18,10 +18,7 @@ export const parseTwitchMessage = (msg: string) => {
 
 // Helper to save processed message IDs to localStorage
 export const saveProcessedIds = (ids: Set<string>) => {
-  localStorage.setItem(
-    "processedMessageIds",
-    JSON.stringify(Array.from(ids))
-  );
+  localStorage.setItem("processedMessageIds", JSON.stringify(Array.from(ids)));
 };
 
 // Helper to load processed message IDs from localStorage
