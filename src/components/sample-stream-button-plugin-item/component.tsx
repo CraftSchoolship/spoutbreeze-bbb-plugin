@@ -13,7 +13,6 @@ import { useStreamManager } from "../../hooks/useStreamManager";
 import { useChatProcessor } from "../../hooks/useChatProcessor";
 import { StreamModal } from "./StreamModal";
 import "./style.css";
-import { stopStream } from "../../api/stopStream";
 
 function SampleStreamButtonPluginItem({
   pluginUuid: uuid,
@@ -23,8 +22,13 @@ function SampleStreamButtonPluginItem({
   const { data: currentUser } = pluginApi.useCurrentUser();
   const { data: meetingInfo } = pluginApi.useMeeting();
   const [showModal, setShowModal] = useState<boolean>(false);
-  const WEBSOCKET_URL = process.env.WEBSOCKET_URL;
-  const { messages, sendMessage } = useTwitchChat(`${WEBSOCKET_URL}/ws/chat/`);
+
+  const CHAT_GATEWAY_URL = process.env.CHAT_GATEWAY_URL;
+  const API_URL = process.env.API_URL;
+
+  const { messages, sendMessage } = useTwitchChat(
+    `${CHAT_GATEWAY_URL}/ws/chat/`
+  );
 
   const {
     meetingDetails,
@@ -43,11 +47,10 @@ function SampleStreamButtonPluginItem({
 
   const handleStartStreamButtonClick = () => {
     setShowModal(true);
-    // Get the internal meeting ID from BBB
-    const internalMeetingId = Array.isArray(meetingInfo) 
-      ? meetingInfo[0]?.meetingId 
+    const internalMeetingId = Array.isArray(meetingInfo)
+      ? meetingInfo[0]?.meetingId
       : (meetingInfo as any)?.meetingId;
-    
+
     if (internalMeetingId) {
       loadStreamData(internalMeetingId);
     }
@@ -72,7 +75,6 @@ function SampleStreamButtonPluginItem({
           icon: "play",
           tooltip: "Start Stream",
           allowed: true,
-          // disabled: isStreaming,
           onClick: () => {
             handleStartStreamButtonClick();
           },

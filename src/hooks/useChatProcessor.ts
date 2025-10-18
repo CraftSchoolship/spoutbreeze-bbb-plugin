@@ -1,134 +1,164 @@
 import { useEffect, useState } from "react";
 import { PluginApi, pluginLogger } from "bigbluebutton-html-plugin-sdk";
-import { parseTwitchMessage, saveProcessedIds, loadProcessedIds } from "../utils/messageProcessor";
+import { loadProcessedIds, saveProcessedIds } from "../utils/messageProcessor";
+import type { NormalizedMessage, OutboundMessage } from "./useTwitchChat";
 
 export const useChatProcessor = (
   pluginApi: PluginApi,
-  messages: string[],
-  sendMessage: (message: string) => void
+  messages: NormalizedMessage[],
+  sendMessage: (payload: OutboundMessage) => void
 ) => {
-  const [processedMessages, setProcessedMessages] = useState<string[]>([]);
-  const [lastProcessedMessageIds, setLastProcessedMessageIds] = useState<Set<string>>(new Set());
+  const [processedMessageIds, setProcessedMessageIds] = useState<Set<string>>(
+    new Set()
+  );
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
   const loadedChatMessages = pluginApi.useLoadedChatMessages();
+  const currentUser = pluginApi.useCurrentUser();
 
-  // Initialize on component mount
+  // Initialize processed IDs from BBB history
   useEffect(() => {
     if (!isInitialized && loadedChatMessages?.data) {
-      // Load already processed message IDs from localStorage
       const storedIds = loadProcessedIds();
-
-      // Mark all existing messages as processed on first load
       const currentIds = new Set(storedIds);
       loadedChatMessages.data.forEach((msg) => {
         if (msg.messageId) currentIds.add(msg.messageId);
       });
-
-      setLastProcessedMessageIds(currentIds);
+      setProcessedMessageIds(currentIds);
       saveProcessedIds(currentIds);
       setIsInitialized(true);
-
-      console.log(`Initialized with ${currentIds.size} processed message IDs`);
     }
   }, [loadedChatMessages, isInitialized]);
 
-  // Process only new messages
+  // BBB → Gateway (Twitch) using "/twitch ..."
   useEffect(() => {
-    // Skip if we haven't initialized
-    if (!isInitialized || !loadedChatMessages?.data) return;
+    if (!isInitialized || !loadedChatMessages?.data || !currentUser?.data)
+      return;
 
     const newMessages = loadedChatMessages.data.filter(
-      (msg) => msg.messageId && !lastProcessedMessageIds.has(msg.messageId)
+      (msg) => msg.messageId && !processedMessageIds.has(msg.messageId)
     );
 
-    if (newMessages.length > 0) {
-      console.log(`Processing ${newMessages.length} new messages`);
+    if (newMessages.length === 0) return;
 
-      // Create new set with existing IDs
-      const updatedProcessedIds = new Set(lastProcessedMessageIds);
+    const updatedProcessedIds = new Set(processedMessageIds);
 
-      for (const chatMessage of newMessages) {
-        // Skip if no ID or already processed
-        if (!chatMessage.messageId) continue;
+    for (const chatMessage of newMessages) {
+      if (!chatMessage.messageId) continue;
 
-        // Skip Twitch messages to avoid loops
-        if (chatMessage.message?.includes(`**🟢 [Twitch]**`)) {
-          updatedProcessedIds.add(chatMessage.messageId);
-          continue;
-        }
-
-        // Process BBB -> Twitch messages
-        if (chatMessage.message?.includes("/twitch")) {
-          const message = chatMessage.message.trim();
-          if (message) {
-            try {
-              sendMessage(message);
-              console.log("Message sent to Twitch:", message);
-              pluginLogger.info("Message sent to Twitch:", message);
-            } catch (error) {
-              console.error("Error sending message:", error);
-            }
-          }
-        }
-
-        // Mark as processed
+      // Skip messages we injected from gateway to avoid loops
+      // Match any platform marker pattern
+      if (
+        chatMessage.message?.includes("**🟢 [") ||
+        chatMessage.message?.includes("[Twitch]") ||
+        chatMessage.message?.includes("[Youtube]")
+      ) {
         updatedProcessedIds.add(chatMessage.messageId);
+        continue;
       }
 
-      // Update our processed IDs and localStorage
-      setLastProcessedMessageIds(updatedProcessedIds);
-      saveProcessedIds(updatedProcessedIds);
-    }
-  }, [loadedChatMessages, lastProcessedMessageIds, sendMessage, isInitialized]);
+      // Command: /twitch Hello world
+      if (chatMessage.message?.startsWith("/twitch")) {
+        const text = chatMessage.message.replace(/^\/twitch\s*/, "").trim();
+        if (text) {
+          try {
+            // Get the stored backend user ID
+            const backendUserId = localStorage.getItem("backend_user_id");
 
-  // Optional: Periodic cleanup for localStorage to prevent it from growing too large
+            if (!backendUserId) {
+              pluginLogger.error(
+                "[ChatProcessor] No backend_user_id found. Please start streaming first."
+              );
+              updatedProcessedIds.add(chatMessage.messageId);
+              continue;
+            }
+
+            const payload: OutboundMessage = {
+              type: "outbound_message",
+              platform: "twitch",
+              text,
+              user: {
+                id: backendUserId, // Use backend user UUID
+                name: currentUser.data.name,
+              },
+            };
+            sendMessage(payload);
+            pluginLogger.info(
+              `[ChatProcessor] Sent to Twitch: ${text} (user: ${backendUserId})`
+            );
+          } catch (error) {
+            console.error("Error sending to Gateway:", error);
+          }
+        }
+      }
+
+      updatedProcessedIds.add(chatMessage.messageId);
+    }
+
+    setProcessedMessageIds(updatedProcessedIds);
+    saveProcessedIds(updatedProcessedIds);
+  }, [
+    loadedChatMessages,
+    processedMessageIds,
+    sendMessage,
+    isInitialized,
+    currentUser,
+  ]);
+
+  // Gateway → BBB
+  useEffect(() => {
+    if (!messages.length) return;
+
+    const newFrames = messages.filter((m) => {
+      const msgId = m.message_id || `${m.platform}-${m.user?.id}-${m.text}`;
+      return !processedMessageIds.has(msgId);
+    });
+
+    if (newFrames.length === 0) return;
+
+    // Format messages with platform prefix
+    const formatted = newFrames.map(
+      (m) =>
+        `**🟢 [${
+          m.platform.charAt(0).toUpperCase() + m.platform.slice(1)
+        }]**\n**${m.user?.name || "unknown"}**: ${m.text}`
+    );
+
+    // Send to BBB chat using serverCommands
+    pluginApi.serverCommands.chat.sendPublicChatMessage({
+      textMessageInMarkdownFormat: formatted.join("\n"),
+    });
+
+    pluginLogger.info(
+      `[ChatProcessor] Injected ${newFrames.length} message(s) into BBB chat`
+    );
+
+    // Mark as processed
+    const updatedProcessedIds = new Set(processedMessageIds);
+    newFrames.forEach((m) => {
+      const msgId = m.message_id || `${m.platform}-${m.user?.id}-${m.text}`;
+      updatedProcessedIds.add(msgId);
+    });
+    setProcessedMessageIds(updatedProcessedIds);
+    saveProcessedIds(updatedProcessedIds);
+  }, [messages, processedMessageIds, pluginApi]);
+
+  // Cleanup old processed IDs periodically
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
       const ids = loadProcessedIds();
-      // Keep only the most recent 1000 message IDs
       if (ids.size > 1000) {
         const recentIds = new Set(Array.from(ids).slice(-1000));
         saveProcessedIds(recentIds);
-        setLastProcessedMessageIds(recentIds);
-        console.log(
-          "Cleaned up message ID history, keeping recent 1000 entries"
-        );
+        setProcessedMessageIds(recentIds);
       }
-    }, 1000 * 60 * 60); // Run once per hour
+    }, 1000 * 60 * 60); // Every hour
 
     return () => clearInterval(cleanupInterval);
   }, []);
 
-  // Process incoming twitch chat messages
-  useEffect(() => {
-    // only process messages if there's something new
-    if (!messages.length) return;
-
-    // Find the last message that hasn't been processed
-    const newMessages = messages
-      .filter((msg) => !processedMessages.includes(msg))
-      .map(parseTwitchMessage)
-      .filter((msg) => msg !== null);
-
-    // If we have new messages, send them to BBB chat
-    if (newMessages.length > 0) {
-      const formattedMessages = newMessages.map(
-        (msg) => `**🟢 [Twitch]**\n**${msg?.user}**: ${msg?.text}`
-      );
-
-      pluginApi.serverCommands.chat.sendPublicChatMessage({
-        textMessageInMarkdownFormat: formattedMessages.join("\n"),
-      });
-
-      // Update our processed messages list
-      setProcessedMessages((prev) => [...prev, ...messages]);
-    }
-  }, [messages, processedMessages, pluginApi]);
-
   return {
-    processedMessages,
-    lastProcessedMessageIds,
+    processedMessageIds,
     isInitialized,
   };
 };
