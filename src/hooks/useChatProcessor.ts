@@ -30,7 +30,7 @@ export const useChatProcessor = (
     }
   }, [loadedChatMessages, isInitialized]);
 
-  // BBB → Gateway (Twitch) using "/twitch ..."
+  // BBB → Gateway (Platform) using "/twitch ..." or "/youtube ..."
   useEffect(() => {
     if (!isInitialized || !loadedChatMessages?.data || !currentUser?.data)
       return;
@@ -46,13 +46,18 @@ export const useChatProcessor = (
     for (const chatMessage of newMessages) {
       if (!chatMessage.messageId) continue;
 
-      // Skip messages we injected from gateway to avoid loops
-      // Match any platform marker pattern
+      // Skip messages we injected from gateway
       if (
         chatMessage.message?.includes("**🟢 [") ||
-        chatMessage.message?.includes("[Twitch]") ||
-        chatMessage.message?.includes("[Youtube]")
+        chatMessage.message?.includes("**🔴 [")
       ) {
+        updatedProcessedIds.add(chatMessage.messageId);
+        continue;
+      }
+
+      const backendUserId = localStorage.getItem("backend_user_id");
+
+      if (!backendUserId) {
         updatedProcessedIds.add(chatMessage.messageId);
         continue;
       }
@@ -61,34 +66,28 @@ export const useChatProcessor = (
       if (chatMessage.message?.startsWith("/twitch")) {
         const text = chatMessage.message.replace(/^\/twitch\s*/, "").trim();
         if (text) {
-          try {
-            // Get the stored backend user ID
-            const backendUserId = localStorage.getItem("backend_user_id");
-
-            if (!backendUserId) {
-              pluginLogger.error(
-                "[ChatProcessor] No backend_user_id found. Please start streaming first."
-              );
-              updatedProcessedIds.add(chatMessage.messageId);
-              continue;
-            }
-
-            const payload: OutboundMessage = {
-              type: "outbound_message",
-              platform: "twitch",
-              text,
-              user: {
-                id: backendUserId, // Use backend user UUID
-                name: currentUser.data.name,
-              },
-            };
-            sendMessage(payload);
-            pluginLogger.info(
-              `[ChatProcessor] Sent to Twitch: ${text} (user: ${backendUserId})`
-            );
-          } catch (error) {
-            console.error("Error sending to Gateway:", error);
-          }
+          const payload: OutboundMessage = {
+            type: "outbound_message",
+            platform: "twitch",
+            text,
+            user: { id: backendUserId, name: currentUser.data.name },
+          };
+          sendMessage(payload);
+          pluginLogger.info(`[ChatProcessor] Sent to Twitch: ${text}`);
+        }
+      }
+      // Command: /youtube Hello world
+      else if (chatMessage.message?.startsWith("/youtube")) {
+        const text = chatMessage.message.replace(/^\/youtube\s*/, "").trim();
+        if (text) {
+          const payload: OutboundMessage = {
+            type: "outbound_message",
+            platform: "youtube",
+            text,
+            user: { id: backendUserId, name: currentUser.data.name },
+          };
+          sendMessage(payload);
+          pluginLogger.info(`[ChatProcessor] Sent to YouTube: ${text}`);
         }
       }
 
@@ -116,15 +115,16 @@ export const useChatProcessor = (
 
     if (newFrames.length === 0) return;
 
-    // Format messages with platform prefix
-    const formatted = newFrames.map(
-      (m) =>
-        `**🟢 [${
-          m.platform.charAt(0).toUpperCase() + m.platform.slice(1)
-        }]**\n**${m.user?.name || "unknown"}**: ${m.text}`
-    );
+    // Format messages with platform-specific icon
+    const formatted = newFrames.map((m) => {
+      const platformName =
+        m.platform.charAt(0).toUpperCase() + m.platform.slice(1);
+      const icon = m.platform === "youtube" ? "🔴" : "🟢";
+      return `**${icon} [${platformName}]**\n**${
+        m.user?.name || "unknown"
+      }**: ${m.text}`;
+    });
 
-    // Send to BBB chat using serverCommands
     pluginApi.serverCommands.chat.sendPublicChatMessage({
       textMessageInMarkdownFormat: formatted.join("\n"),
     });
