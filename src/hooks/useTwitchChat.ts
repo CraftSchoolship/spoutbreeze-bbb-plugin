@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 export type NormalizedMessage = {
-  platform: string; // "twitch" | "youtube" | ...
+  platform: string;
   type: "message";
   user: { id?: string; name: string };
   text: string;
@@ -16,27 +16,29 @@ export type OutboundMessage = {
   user?: { id?: string; name?: string };
 };
 
-export const useTwitchChat = (url: string) => {
+// Accept meeting_id parameter
+export const useTwitchChat = (url: string, meetingId?: string) => {
   const [messages, setMessages] = useState<NormalizedMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const ws = new WebSocket(url);
+    // Build WebSocket URL with meeting_id query param
+    const wsUrl = meetingId ? `${url}?meeting_id=${encodeURIComponent(meetingId)}` : url;
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("[Gateway WS] Connected");
+      console.log("[Gateway WS] Connected", meetingId ? `with meeting_id=${meetingId}` : "");
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        // Accept normalized chat message frames
         if (data && data.type === "message" && data.platform && data.text) {
           setMessages((prev) => [...prev, data as NormalizedMessage]);
         }
       } catch {
-        // Ignore non-JSON pings or other frames
+        // Ignore
       }
     };
 
@@ -47,13 +49,14 @@ export const useTwitchChat = (url: string) => {
     ws.onclose = () => {
       console.log("[Gateway WS] Disconnected");
     };
+
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [url]);
+  }, [url, meetingId]);
 
   const sendMessage = (payload: OutboundMessage) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

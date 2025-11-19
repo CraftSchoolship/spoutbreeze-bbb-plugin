@@ -26,8 +26,15 @@ function SampleStreamButtonPluginItem({
   const CHAT_GATEWAY_URL = process.env.CHAT_GATEWAY_URL;
   const API_URL = process.env.API_URL;
 
+  // Extract meeting_id from BBB SDK
+  const internalMeetingId = Array.isArray(meetingInfo)
+    ? meetingInfo[0]?.meetingId
+    : (meetingInfo as any)?.meetingId;
+
+  // Pass meeting_id to WebSocket hook
   const { messages, sendMessage } = useTwitchChat(
-    `${CHAT_GATEWAY_URL}/ws/chat/`
+    `${CHAT_GATEWAY_URL}/ws/chat/`,
+    internalMeetingId
   );
 
   const {
@@ -47,13 +54,7 @@ function SampleStreamButtonPluginItem({
 
   const handleStartStreamButtonClick = () => {
     setShowModal(true);
-    const internalMeetingId = Array.isArray(meetingInfo)
-      ? meetingInfo[0]?.meetingId
-      : (meetingInfo as any)?.meetingId;
-
-    if (internalMeetingId) {
-      loadStreamData(internalMeetingId);
-    }
+    loadStreamData(internalMeetingId);
     pluginLogger.info("Start Stream button clicked");
   };
 

@@ -55,13 +55,6 @@ export const useChatProcessor = (
         continue;
       }
 
-      const backendUserId = localStorage.getItem("backend_user_id");
-
-      if (!backendUserId) {
-        updatedProcessedIds.add(chatMessage.messageId);
-        continue;
-      }
-
       // Command: /twitch Hello world
       if (chatMessage.message?.startsWith("/twitch")) {
         const text = chatMessage.message.replace(/^\/twitch\s*/, "").trim();
@@ -70,7 +63,6 @@ export const useChatProcessor = (
             type: "outbound_message",
             platform: "twitch",
             text,
-            user: { id: backendUserId, name: currentUser.data.name },
           };
           sendMessage(payload);
           pluginLogger.info(`[ChatProcessor] Sent to Twitch: ${text}`);
@@ -84,7 +76,6 @@ export const useChatProcessor = (
             type: "outbound_message",
             platform: "youtube",
             text,
-            user: { id: backendUserId, name: currentUser.data.name },
           };
           sendMessage(payload);
           pluginLogger.info(`[ChatProcessor] Sent to YouTube: ${text}`);
