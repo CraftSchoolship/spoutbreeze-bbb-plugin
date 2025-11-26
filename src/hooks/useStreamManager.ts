@@ -1,23 +1,33 @@
 import { useState } from "react";
-import { fetchStreamEndpoints, StreamEndpointsRes } from "../api/streamEndpoints";
+import {
+  fetchStreamEndpoints,
+  StreamEndpointsRes,
+} from "../api/streamEndpoints";
 import { fetchMeetingDetails, MeetingDetailsRes } from "../api/meetingDetails";
 import { startStream } from "../api/startStream";
 import { fetchBroadcastStatus } from "../api/broadcastStatus";
 import { stopStream } from "../api/stopStream";
 import { pluginLogger } from "bigbluebutton-html-plugin-sdk";
 
+const API_URL = process.env.API_URL || "http://127.0.0.1:8000";
+
 export const useStreamManager = () => {
-  const [meetingDetails, setMeetingDetails] = useState<MeetingDetailsRes | null>(null);
+  const [meetingDetails, setMeetingDetails] =
+    useState<MeetingDetailsRes | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("");
-  const [streamEndpoints, setStreamEndpoints] = useState<StreamEndpointsRes[]>([]);
+  const [streamEndpoints, setStreamEndpoints] = useState<StreamEndpointsRes[]>(
+    []
+  );
   const [selectedEndpointId, setSelectedEndpointId] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // New state
-  const [currentStreamId, setCurrentStreamId] = useState<string | null>(
-    () => localStorage.getItem("current_stream_id")
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(() =>
+    localStorage.getItem("current_stream_id")
   );
-  const [isStreaming, setIsStreaming] = useState<boolean>(!!localStorage.getItem("current_stream_id"));
+  const [isStreaming, setIsStreaming] = useState<boolean>(
+    !!localStorage.getItem("current_stream_id")
+  );
 
   const loadStreamData = async (internalMeetingId: string) => {
     setIsLoading(true);
@@ -31,12 +41,12 @@ export const useStreamManager = () => {
       // Fetch both meeting details and stream endpoints concurrently
       const [meetingDetailsResponse, endpointsResponse] = await Promise.all([
         fetchMeetingDetails(internalMeetingId),
-        fetchStreamEndpoints()
+        fetchStreamEndpoints(),
       ]);
 
       setMeetingDetails(meetingDetailsResponse);
       setStreamEndpoints(endpointsResponse);
-      
+
       if (endpointsResponse.length > 0) {
         setSelectedEndpointId(endpointsResponse[0].id);
       }
@@ -54,7 +64,7 @@ export const useStreamManager = () => {
   const pollStatus = async (streamId: string) => {
     let attempts = 0;
     const maxAttempts = 30; // ~150s if 5s interval
-    const intervalMs = 5000;
+    const intervalMs = 20000; // 20 seconds
 
     const loop = async () => {
       attempts++;
@@ -92,7 +102,9 @@ export const useStreamManager = () => {
       setStatusMessage("Meeting details not loaded");
       return;
     }
-    const selectedEndpoint = streamEndpoints.find(e => e.id === selectedEndpointId);
+    const selectedEndpoint = streamEndpoints.find(
+      (e) => e.id === selectedEndpointId
+    );
     if (!selectedEndpoint) {
       setStatusMessage("Invalid stream endpoint selected");
       return;
@@ -105,6 +117,8 @@ export const useStreamManager = () => {
         password: meetingDetails.moderator_pw,
         platform: selectedEndpoint.title,
       };
+
+      // Start stream first
       const res = await startStream(payload);
       const sid = res.stream.stream_id;
       setCurrentStreamId(sid);
@@ -113,8 +127,15 @@ export const useStreamManager = () => {
       setStatusMessage(`Broadcast started (stream_id: ${sid})`);
       pollStatus(sid);
     } catch (error: any) {
-      setStatusMessage("Error starting stream");
-      pluginLogger.error("Error starting stream:", error);
+      // Handle 403 concurrent limit error
+      if (error.response?.status === 403) {
+        const errorDetail = error.response?.data?.detail || "Concurrent stream limit reached";
+        setStatusMessage(errorDetail);
+        pluginLogger.error("Concurrent stream limit:", errorDetail);
+      } else {
+        setStatusMessage("Error starting stream");
+        pluginLogger.error("Error starting stream:", error);
+      }
     }
   };
 

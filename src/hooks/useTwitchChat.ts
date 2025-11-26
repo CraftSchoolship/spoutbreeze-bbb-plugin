@@ -1,47 +1,72 @@
 import { useEffect, useRef, useState } from "react";
 
-export const useTwitchChat = (url: string) => {
-    const [messages, setMessages] = useState<string[]>([]);
-    const wsRef = useRef<WebSocket | null>(null);
+export type NormalizedMessage = {
+  platform: string;
+  type: "message";
+  user: { id?: string; name: string };
+  text: string;
+  timestamp?: string;
+  message_id?: string;
+};
 
-    useEffect(() => {
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
+export type OutboundMessage = {
+  type: "outbound_message";
+  platform: string;
+  text: string;
+  user?: { id?: string; name?: string };
+};
 
-        ws.onopen = () => {
-            console.log("[WebSocket] Connected");
-        };
+// Accept meeting_id parameter
+export const useTwitchChat = (url: string, meetingId?: string) => {
+  const [messages, setMessages] = useState<NormalizedMessage[]>([]);
+  const wsRef = useRef<WebSocket | null>(null);
 
-        ws.onmessage = (event) => {
-            const data = event.data;
-            setMessages((prev)=> [...prev, data]);
-            console.log("[WebSocket] Message received:", data);
-        };
+  useEffect(() => {
+    // Build WebSocket URL with meeting_id query param
+    const wsUrl = meetingId ? `${url}?meeting_id=${encodeURIComponent(meetingId)}` : url;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
 
-        ws.onerror = (error) => {
-            console.error("[WebSocket] Error:", error);
-        };
+    ws.onopen = () => {
+      console.log("[Gateway WS] Connected", meetingId ? `with meeting_id=${meetingId}` : "");
+    };
 
-        ws.onclose = () => {
-            console.log("[WebSocket] Disconnected");
-        };
-        return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
-                wsRef.current = null;
-            }
-        };
-    }, [url]);
-
-    const sendMessage = (msg: string) => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send(msg);
-            console.log("[WebSocket] Message sent:", msg);
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data && data.type === "message" && data.platform && data.text) {
+          setMessages((prev) => [...prev, data as NormalizedMessage]);
         }
+      } catch {
+        // Ignore
+      }
     };
 
-    return {
-        messages,
-        sendMessage,
+    ws.onerror = (error) => {
+      console.error("[Gateway WS] Error:", error);
     };
-}
+
+    ws.onclose = () => {
+      console.log("[Gateway WS] Disconnected");
+    };
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [url, meetingId]);
+
+  const sendMessage = (payload: OutboundMessage) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(payload));
+      console.log("[Gateway WS] Outbound:", payload);
+    }
+  };
+
+  return {
+    messages,
+    sendMessage,
+  };
+};
