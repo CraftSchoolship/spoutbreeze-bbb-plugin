@@ -118,16 +118,6 @@ export const useStreamManager = () => {
         platform: selectedEndpoint.title,
       };
 
-      // Fetch backend user and store id for chat commands
-      // const meRes = await fetch(`${API_URL}/api/users/me`, {
-      //   credentials: "include",
-      // });
-      // if (meRes.ok) {
-      //   const me = await meRes.json();
-      //   localStorage.setItem("backend_user_id", me.id);
-      //   pluginLogger.info(`[Stream] Backend user ID: ${me.id}`);
-      // }
-
       // Start stream first
       const res = await startStream(payload);
       const sid = res.stream.stream_id;
@@ -136,26 +126,16 @@ export const useStreamManager = () => {
       localStorage.setItem("current_stream_id", sid);
       setStatusMessage(`Broadcast started (stream_id: ${sid})`);
       pollStatus(sid);
-
-      // Then connect platform chat based on selected endpoint
-      // const title = selectedEndpoint.title.toLowerCase();
-      // if (title.includes("twitch")) {
-      //   await fetch(`${API_URL}/api/auth/twitch/connect`, {
-      //     method: "POST",
-      //     credentials: "include",
-      //   });
-      //   pluginLogger.info("[Stream] Twitch chat connected");
-      // }
-      // if (title.includes("youtube")) {
-      //   await fetch(`${API_URL}/api/auth/youtube/connect`, {
-      //     method: "POST",
-      //     credentials: "include",
-      //   });
-      //   pluginLogger.info("[Stream] YouTube chat connected");
-      // }
     } catch (error: any) {
-      setStatusMessage("Error starting stream");
-      pluginLogger.error("Error starting stream:", error);
+      // Handle 403 concurrent limit error
+      if (error.response?.status === 403) {
+        const errorDetail = error.response?.data?.detail || "Concurrent stream limit reached";
+        setStatusMessage(errorDetail);
+        pluginLogger.error("Concurrent stream limit:", errorDetail);
+      } else {
+        setStatusMessage("Error starting stream");
+        pluginLogger.error("Error starting stream:", error);
+      }
     }
   };
 
