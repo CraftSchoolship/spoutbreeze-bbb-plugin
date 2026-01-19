@@ -31,12 +31,6 @@ function SampleStreamButtonPluginItem({
     ? meetingInfo[0]?.meetingId
     : (meetingInfo as any)?.meetingId;
 
-  // Pass meeting_id to WebSocket hook
-  const { messages, sendMessage } = useTwitchChat(
-    `${CHAT_GATEWAY_URL}/ws/chat/`,
-    internalMeetingId
-  );
-
   const {
     meetingDetails,
     statusMessage,
@@ -50,7 +44,24 @@ function SampleStreamButtonPluginItem({
     isStreaming,
   } = useStreamManager();
 
-  useChatProcessor(pluginApi, messages, sendMessage);
+  // ALWAYS establish WebSocket connection if stream is active OR if user is presenter
+  // The WebSocket itself will only broadcast to ONE connection, but all users can listen
+  // The key is that only ONE user should have isStreaming=true
+  
+  // Simplified: Connect if stream is active (determined by localStorage)
+  // Only the presenter who started the stream will have isStreaming=true
+  const { messages, sendMessage } = useTwitchChat(
+    `${CHAT_GATEWAY_URL}/ws/chat/`,
+    internalMeetingId
+  );
+
+  // Only process messages if this is the presenter (to avoid duplicates)
+  // Pass isStreaming flag to processor
+  useChatProcessor(
+    pluginApi, 
+    currentUser?.presenter && isStreaming ? messages : [],
+    sendMessage
+  );
 
   const handleStartStreamButtonClick = () => {
     setShowModal(true);
