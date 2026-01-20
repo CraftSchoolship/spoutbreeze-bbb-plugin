@@ -40,20 +40,22 @@ export function StreamModal({
         ) : (
           <form onSubmit={onSubmit}>
             <div>
-              <label htmlFor="stream-destination">Stream Destination:</label>
-              <select
-                id="stream-destination"
-                value={selectedEndpointId}
-                onChange={(e) => onEndpointChange(e.target.value)}
-                required
-              >
-                <option value="">Select a destination</option>
-                {streamEndpoints.map((endpoint) => (
-                  <option key={endpoint.id} value={endpoint.id}>
-                    {endpoint.title}
-                  </option>
-                ))}
-              </select>
+              <label htmlFor="stream-destination">
+                Stream Destination:
+                <select
+                  id="stream-destination"
+                  value={selectedEndpointId}
+                  onChange={(e) => onEndpointChange(e.target.value)}
+                  required
+                >
+                  <option value="">Select a destination</option>
+                  {streamEndpoints.map((endpoint) => (
+                    <option key={endpoint.id} value={endpoint.id}>
+                      {endpoint.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <button
               type="submit"

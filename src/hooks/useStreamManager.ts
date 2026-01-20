@@ -1,39 +1,36 @@
-import { useState } from "react";
-import { pluginLogger } from "bigbluebutton-html-plugin-sdk";
+import { useState } from 'react';
+import { pluginLogger } from 'bigbluebutton-html-plugin-sdk';
 import {
   fetchStreamEndpoints,
   StreamEndpointsRes,
-} from "../api/streamEndpoints";
-import { fetchMeetingDetails, MeetingDetailsRes } from "../api/meetingDetails";
-import { startStream } from "../api/startStream";
-import { fetchBroadcastStatus } from "../api/broadcastStatus";
-import { stopStream } from "../api/stopStream";
+} from '../api/streamEndpoints';
+import { fetchMeetingDetails, MeetingDetailsRes } from '../api/meetingDetails';
+import { startStream } from '../api/startStream';
+import { fetchBroadcastStatus } from '../api/broadcastStatus';
+import { stopStream } from '../api/stopStream';
 
 // const API_URL = process.env.API_URL || 'http://127.0.0.1:8000';
 
 export const useStreamManager = () => {
-  const [meetingDetails, setMeetingDetails] =
-    useState<MeetingDetailsRes | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string>("");
+  const [meetingDetails, setMeetingDetails] = useState<MeetingDetailsRes | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>('');
   const [streamEndpoints, setStreamEndpoints] = useState<StreamEndpointsRes[]>(
     [],
   );
-  const [selectedEndpointId, setSelectedEndpointId] = useState<string>("");
+  const [selectedEndpointId, setSelectedEndpointId] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // New state
-  const [currentStreamId, setCurrentStreamId] = useState<string | null>(() =>
-    localStorage.getItem("current_stream_id"),
-  );
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(() => localStorage.getItem('current_stream_id'));
   const [isStreaming, setIsStreaming] = useState<boolean>(
-    !!localStorage.getItem("current_stream_id"),
+    !!localStorage.getItem('current_stream_id'),
   );
 
   const loadStreamData = async (internalMeetingId: string) => {
     setIsLoading(true);
     try {
       if (!internalMeetingId) {
-        throw new Error("Meeting ID not available");
+        throw new Error('Meeting ID not available');
       }
 
       // console.log('Loading data for meeting:', internalMeetingId);
@@ -51,11 +48,11 @@ export const useStreamManager = () => {
         setSelectedEndpointId(endpointsResponse[0].id);
       }
 
-      setStatusMessage("Stream data loaded successfully");
+      setStatusMessage('Stream data loaded successfully');
       setIsLoading(false);
     } catch (error) {
       setStatusMessage(`Error loading stream data: ${error.message}`);
-      pluginLogger.error("Error loading stream data:", error);
+      pluginLogger.error('Error loading stream data:', error);
       // console.error('Error loading stream data:', error);
       setIsLoading(false);
     }
@@ -70,24 +67,24 @@ export const useStreamManager = () => {
       attempts += 1;
       try {
         const status = await fetchBroadcastStatus(streamId);
-        if (status.status === "running") {
+        if (status.status === 'running') {
           setStatusMessage(`Stream running (pod: ${status.pod_name})`);
-          pluginLogger.info("Broadcast running", status);
+          pluginLogger.info('Broadcast running', status);
           return;
         }
-        if (status.status === "failed") {
-          setStatusMessage(`Stream failed: ${status.error || "unknown error"}`);
-          pluginLogger.error("Broadcast failed", status);
+        if (status.status === 'failed') {
+          setStatusMessage(`Stream failed: ${status.error || 'unknown error'}`);
+          pluginLogger.error('Broadcast failed', status);
           return;
         }
         if (attempts < maxAttempts) {
           setTimeout(loop, intervalMs);
         } else {
-          setStatusMessage("Timeout waiting for stream to start");
+          setStatusMessage('Timeout waiting for stream to start');
         }
       } catch (e) {
-        setStatusMessage("Error polling stream status");
-        pluginLogger.error("Polling error", e);
+        setStatusMessage('Error polling stream status');
+        pluginLogger.error('Polling error', e);
       }
     };
     loop();
@@ -95,18 +92,18 @@ export const useStreamManager = () => {
 
   const handleStreamStart = async () => {
     if (!selectedEndpointId) {
-      setStatusMessage("Please select a stream endpoint");
+      setStatusMessage('Please select a stream endpoint');
       return;
     }
     if (!meetingDetails) {
-      setStatusMessage("Meeting details not loaded");
+      setStatusMessage('Meeting details not loaded');
       return;
     }
     const selectedEndpoint = streamEndpoints.find(
       (e) => e.id === selectedEndpointId,
     );
     if (!selectedEndpoint) {
-      setStatusMessage("Invalid stream endpoint selected");
+      setStatusMessage('Invalid stream endpoint selected');
       return;
     }
     try {
@@ -123,47 +120,43 @@ export const useStreamManager = () => {
       const sid = res.stream.stream_id;
       setCurrentStreamId(sid);
       setIsStreaming(true);
-      localStorage.setItem("current_stream_id", sid);
+      localStorage.setItem('current_stream_id', sid);
       setStatusMessage(`Broadcast started (stream_id: ${sid})`);
       pollStatus(sid);
     } catch (error: unknown) {
       if (
-        typeof error === "object" &&
-        error !== null &&
-        "response" in error &&
-        (error as { response?: { status?: number } }).response?.status === 403
+        typeof error === 'object' && error !== null && 'response' in error && (error as { response?: { status?: number } }).response?.status === 403
       ) {
-        const errorDetail =
-          (
-            error as {
-              response?: { data?: { detail?: string } };
-            }
-          ).response?.data?.detail || "Concurrent stream limit reached";
+        const errorDetail = (
+          error as {
+            response?: { data?: { detail?: string } };
+          }
+        ).response?.data?.detail || 'Concurrent stream limit reached';
         setStatusMessage(errorDetail);
-        pluginLogger.error("Concurrent stream limit:", errorDetail);
+        pluginLogger.error('Concurrent stream limit:', errorDetail);
       } else {
-        setStatusMessage("Error starting stream");
-        pluginLogger.error("Error starting stream:", error);
+        setStatusMessage('Error starting stream');
+        pluginLogger.error('Error starting stream:', error);
       }
     }
   };
 
   const handleStreamStop = async () => {
-    const sid = currentStreamId || localStorage.getItem("current_stream_id");
+    const sid = currentStreamId || localStorage.getItem('current_stream_id');
     if (!sid) {
-      setStatusMessage("No active stream to stop");
+      setStatusMessage('No active stream to stop');
       return;
     }
     try {
       await stopStream(sid);
-      setStatusMessage("Stream stopped");
+      setStatusMessage('Stream stopped');
       setIsStreaming(false);
       setCurrentStreamId(null);
-      localStorage.removeItem("current_stream_id");
-      localStorage.removeItem("current_stream_status");
+      localStorage.removeItem('current_stream_id');
+      localStorage.removeItem('current_stream_status');
     } catch (e: unknown) {
-      setStatusMessage("Error stopping stream");
-      pluginLogger.error("Stop stream failed", e);
+      setStatusMessage('Error stopping stream');
+      pluginLogger.error('Stop stream failed', e);
     }
   };
 
