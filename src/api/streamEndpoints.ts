@@ -34,7 +34,7 @@ export const fetchStreamEndpoints = async (): Promise<StreamEndpointsRes[]> => {
       `Failed to fetch stream endpoints: ${response.statusText}`,
     );
   } catch (error) {
-    console.error('Error fetching stream endpoints:', error);
+    // console.error('Error fetching stream endpoints:', error);
     throw error;
   }
 };

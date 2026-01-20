@@ -18,7 +18,7 @@ export interface StartStreamResponse {
     status: string;
     created_at: string;
   };
-  meeting_info: any;
+  meeting_info: Record<string, unknown>;
 }
 
 const { API_URL } = process.env;
@@ -26,9 +26,12 @@ const { API_URL } = process.env;
 export const startStream = async (
   payload: BroadcasterReq,
 ): Promise<StartStreamResponse> => {
-  const response = await axios.post(`${API_URL}/api/bbb/broadcaster`, payload);
+  const response = await axios.post<StartStreamResponse>(
+    `${API_URL}/api/bbb/broadcaster`,
+    payload,
+  );
   if (response.status === 201) {
-    const data = response.data as StartStreamResponse;
+    const { data } = response;
     localStorage.setItem('current_stream_id', data.stream.stream_id);
     return data;
   }
