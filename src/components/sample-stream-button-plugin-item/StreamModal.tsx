@@ -1,7 +1,7 @@
-import * as React from "react";
-import * as ReactModal from "react-modal";
-import { StreamEndpointsRes } from "./../../api/streamEndpoints";
-import { MeetingDetailsRes } from "./../../api/meetingDetails";
+import * as React from 'react';
+import * as ReactModal from 'react-modal';
+import { StreamEndpointsRes } from '../../api/streamEndpoints';
+import { MeetingDetailsRes } from '../../api/meetingDetails';
 
 interface StreamModalProps {
   isOpen: boolean;
@@ -15,7 +15,7 @@ interface StreamModalProps {
   statusMessage: string;
 }
 
-export const StreamModal: React.FC<StreamModalProps> = ({
+export function StreamModal({
   isOpen,
   onClose,
   isLoading,
@@ -25,7 +25,7 @@ export const StreamModal: React.FC<StreamModalProps> = ({
   onSubmit,
   meetingDetails,
   statusMessage,
-}) => {
+}: StreamModalProps): React.ReactElement {
   return (
     <ReactModal
       className="plugin-modal"
@@ -40,8 +40,9 @@ export const StreamModal: React.FC<StreamModalProps> = ({
         ) : (
           <form onSubmit={onSubmit}>
             <div>
-              <label>Stream Destination:</label>
+              <label htmlFor="stream-destination">Stream Destination:</label>
               <select
+                id="stream-destination"
                 value={selectedEndpointId}
                 onChange={(e) => onEndpointChange(e.target.value)}
                 required
@@ -54,14 +55,19 @@ export const StreamModal: React.FC<StreamModalProps> = ({
                 ))}
               </select>
             </div>
-            <button type="submit" disabled={!meetingDetails || !selectedEndpointId}>
+            <button
+              type="submit"
+              disabled={!meetingDetails || !selectedEndpointId}
+            >
               Start Stream
             </button>
           </form>
         )}
         {statusMessage && <p>{statusMessage}</p>}
-        <button onClick={onClose}>Close</button>
+        <button type="button" onClick={onClose}>
+          Close
+        </button>
       </div>
     </ReactModal>
   );
-};
+}

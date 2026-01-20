@@ -4,15 +4,15 @@ import {
   ActionButtonDropdownSeparator,
   ActionButtonDropdownOption,
   pluginLogger,
-} from "bigbluebutton-html-plugin-sdk";
-import * as React from "react";
-import { useEffect, useState } from "react";
-import { SampleStreamButtonPluginItemProps } from "./types";
-import { useTwitchChat } from "../../hooks/useTwitchChat";
-import { useStreamManager } from "../../hooks/useStreamManager";
-import { useChatProcessor } from "../../hooks/useChatProcessor";
-import { StreamModal } from "./StreamModal";
-import "./style.css";
+} from 'bigbluebutton-html-plugin-sdk';
+import * as React from 'react';
+import { useEffect, useState } from 'react';
+import { SampleStreamButtonPluginItemProps } from './types';
+import { useTwitchChat } from '../../hooks/useTwitchChat';
+import { useStreamManager } from '../../hooks/useStreamManager';
+import { useChatProcessor } from '../../hooks/useChatProcessor';
+import { StreamModal } from './StreamModal';
+import './style.css';
 
 function SampleStreamButtonPluginItem({
   pluginUuid: uuid,
@@ -23,13 +23,12 @@ function SampleStreamButtonPluginItem({
   const { data: meetingInfo } = pluginApi.useMeeting();
   const [showModal, setShowModal] = useState<boolean>(false);
 
-  const CHAT_GATEWAY_URL = process.env.CHAT_GATEWAY_URL;
-  const API_URL = process.env.API_URL;
+  const { CHAT_GATEWAY_URL } = process.env;
 
   // Extract meeting_id from BBB SDK
   const internalMeetingId = Array.isArray(meetingInfo)
     ? meetingInfo[0]?.meetingId
-    : (meetingInfo as any)?.meetingId;
+    : (meetingInfo as { meetingId?: string } | undefined)?.meetingId;
 
   const {
     meetingDetails,
@@ -47,33 +46,33 @@ function SampleStreamButtonPluginItem({
   // ALWAYS establish WebSocket connection if stream is active OR if user is presenter
   // The WebSocket itself will only broadcast to ONE connection, but all users can listen
   // The key is that only ONE user should have isStreaming=true
-  
+
   // Simplified: Connect if stream is active (determined by localStorage)
   // Only the presenter who started the stream will have isStreaming=true
   const { messages, sendMessage } = useTwitchChat(
     `${CHAT_GATEWAY_URL}/ws/chat/`,
-    internalMeetingId
+    internalMeetingId,
   );
 
   // Only process messages if this is the presenter (to avoid duplicates)
   // Pass isStreaming flag to processor
   useChatProcessor(
-    pluginApi, 
+    pluginApi,
     currentUser?.presenter && isStreaming ? messages : [],
-    sendMessage
+    sendMessage,
   );
 
-  const handleStartStreamButtonClick = () => {
+  const handleStartStreamButtonClick = (): void => {
     setShowModal(true);
     loadStreamData(internalMeetingId);
-    pluginLogger.info("Start Stream button clicked");
+    pluginLogger.info('Start Stream button clicked');
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = (): void => {
     setShowModal(false);
   };
 
-  const handleFormSubmit = async (event: React.FormEvent) => {
+  const handleFormSubmit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
     await handleStreamStart();
   };
@@ -83,9 +82,9 @@ function SampleStreamButtonPluginItem({
       const items = [
         new ActionButtonDropdownSeparator(),
         new ActionButtonDropdownOption({
-          label: "Start Stream",
-          icon: "play",
-          tooltip: "Start Stream",
+          label: 'Start Stream',
+          icon: 'play',
+          tooltip: 'Start Stream',
           allowed: true,
           onClick: () => {
             handleStartStreamButtonClick();
@@ -96,14 +95,14 @@ function SampleStreamButtonPluginItem({
         items.push(
           new ActionButtonDropdownSeparator(),
           new ActionButtonDropdownOption({
-            label: "Stop Stream",
-            icon: "stop",
-            tooltip: "Stop current stream",
+            label: 'Stop Stream',
+            icon: 'stop',
+            tooltip: 'Stop current stream',
             allowed: true,
             onClick: () => {
               handleStreamStop();
             },
-          })
+          }),
         );
       }
       pluginApi.setActionButtonDropdownItems(items);

@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
-import { PluginApi, pluginLogger } from "bigbluebutton-html-plugin-sdk";
-import { loadProcessedIds, saveProcessedIds } from "../utils/messageProcessor";
-import type { NormalizedMessage, OutboundMessage } from "./useTwitchChat";
+import { useEffect, useState } from 'react';
+import { PluginApi, pluginLogger } from 'bigbluebutton-html-plugin-sdk';
+import { loadProcessedIds, saveProcessedIds } from '../utils/messageProcessor';
+import type { NormalizedMessage, OutboundMessage } from './useTwitchChat';
 
 export const useChatProcessor = (
   pluginApi: PluginApi,
   messages: NormalizedMessage[],
-  sendMessage: (payload: OutboundMessage) => void
+  sendMessage: (payload: OutboundMessage) => void,
 ) => {
   const [processedMessageIds, setProcessedMessageIds] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
@@ -22,7 +22,9 @@ export const useChatProcessor = (
       const storedIds = loadProcessedIds();
       const currentIds = new Set(storedIds);
       loadedChatMessages.data.forEach((msg) => {
-        if (msg.messageId) currentIds.add(msg.messageId);
+        if (msg.messageId) {
+          currentIds.add(msg.messageId);
+        }
       });
       setProcessedMessageIds(currentIds);
       saveProcessedIds(currentIds);
@@ -32,49 +34,53 @@ export const useChatProcessor = (
 
   // BBB → Gateway (Platform) using "/twitch ..." or "/youtube ..."
   useEffect(() => {
-    if (!isInitialized || !loadedChatMessages?.data || !currentUser?.data)
+    if (!isInitialized || !loadedChatMessages?.data || !currentUser?.data) {
       return;
+    }
 
     const newMessages = loadedChatMessages.data.filter(
-      (msg) => msg.messageId && !processedMessageIds.has(msg.messageId)
+      (msg) => msg.messageId && !processedMessageIds.has(msg.messageId),
     );
 
-    if (newMessages.length === 0) return;
+    if (newMessages.length === 0) {
+      return;
+    }
 
     const updatedProcessedIds = new Set(processedMessageIds);
 
-    for (const chatMessage of newMessages) {
-      if (!chatMessage.messageId) continue;
+    newMessages.forEach((chatMessage) => {
+      if (!chatMessage.messageId) {
+        return;
+      }
 
       // Skip messages we injected from gateway
       if (
-        chatMessage.message?.includes("**🟢 [") ||
-        chatMessage.message?.includes("**🔴 [")
+        chatMessage.message?.includes('**🟢 [')
+        || chatMessage.message?.includes('**🔴 [')
       ) {
         updatedProcessedIds.add(chatMessage.messageId);
-        continue;
+        return;
       }
 
       // Command: /twitch Hello world
-      if (chatMessage.message?.startsWith("/twitch")) {
-        const text = chatMessage.message.replace(/^\/twitch\s*/, "").trim();
+      if (chatMessage.message?.startsWith('/twitch')) {
+        const text = chatMessage.message.replace(/^\/twitch\s*/, '').trim();
         if (text) {
           const payload: OutboundMessage = {
-            type: "outbound_message",
-            platform: "twitch",
+            type: 'outbound_message',
+            platform: 'twitch',
             text,
           };
           sendMessage(payload);
           pluginLogger.info(`[ChatProcessor] Sent to Twitch: ${text}`);
         }
-      }
-      // Command: /youtube Hello world
-      else if (chatMessage.message?.startsWith("/youtube")) {
-        const text = chatMessage.message.replace(/^\/youtube\s*/, "").trim();
+      } else if (chatMessage.message?.startsWith('/youtube')) {
+        // Command: /youtube Hello world
+        const text = chatMessage.message.replace(/^\/youtube\s*/, '').trim();
         if (text) {
           const payload: OutboundMessage = {
-            type: "outbound_message",
-            platform: "youtube",
+            type: 'outbound_message',
+            platform: 'youtube',
             text,
           };
           sendMessage(payload);
@@ -83,7 +89,7 @@ export const useChatProcessor = (
       }
 
       updatedProcessedIds.add(chatMessage.messageId);
-    }
+    });
 
     setProcessedMessageIds(updatedProcessedIds);
     saveProcessedIds(updatedProcessedIds);
@@ -97,31 +103,34 @@ export const useChatProcessor = (
 
   // Gateway → BBB
   useEffect(() => {
-    if (!messages.length) return;
+    if (!messages.length) {
+      return;
+    }
 
     const newFrames = messages.filter((m) => {
       const msgId = m.message_id || `${m.platform}-${m.user?.id}-${m.text}`;
       return !processedMessageIds.has(msgId);
     });
 
-    if (newFrames.length === 0) return;
+    if (newFrames.length === 0) {
+      return;
+    }
 
     // Format messages with platform-specific icon
     const formatted = newFrames.map((m) => {
-      const platformName =
-        m.platform.charAt(0).toUpperCase() + m.platform.slice(1);
-      const icon = m.platform === "youtube" ? "🔴" : "🟢";
+      const platformName = m.platform.charAt(0).toUpperCase() + m.platform.slice(1);
+      const icon = m.platform === 'youtube' ? '🔴' : '🟢';
       return `**${icon} [${platformName}]**\n**${
-        m.user?.name || "unknown"
+        m.user?.name || 'unknown'
       }**: ${m.text}`;
     });
 
     pluginApi.serverCommands.chat.sendPublicChatMessage({
-      textMessageInMarkdownFormat: formatted.join("\n"),
+      textMessageInMarkdownFormat: formatted.join('\n'),
     });
 
     pluginLogger.info(
-      `[ChatProcessor] Injected ${newFrames.length} message(s) into BBB chat`
+      `[ChatProcessor] Injected ${newFrames.length} message(s) into BBB chat`,
     );
 
     // Mark as processed
@@ -136,16 +145,21 @@ export const useChatProcessor = (
 
   // Cleanup old processed IDs periodically
   useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      const ids = loadProcessedIds();
-      if (ids.size > 1000) {
-        const recentIds = new Set(Array.from(ids).slice(-1000));
-        saveProcessedIds(recentIds);
-        setProcessedMessageIds(recentIds);
-      }
-    }, 1000 * 60 * 60); // Every hour
+    const cleanupInterval = setInterval(
+      () => {
+        const ids = loadProcessedIds();
+        if (ids.size > 1000) {
+          const recentIds = new Set(Array.from(ids).slice(-1000));
+          saveProcessedIds(recentIds);
+          setProcessedMessageIds(recentIds);
+        }
+      },
+      1000 * 60 * 60,
+    ); // Every hour
 
-    return () => clearInterval(cleanupInterval);
+    return () => {
+      clearInterval(cleanupInterval);
+    };
   }, []);
 
   return {

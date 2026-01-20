@@ -21,13 +21,15 @@ export interface StartStreamResponse {
   meeting_info: any;
 }
 
-const API_URL = process.env.API_URL;
+const { API_URL } = process.env;
 
-export const startStream = async (payload: BroadcasterReq): Promise<StartStreamResponse> => {
+export const startStream = async (
+  payload: BroadcasterReq,
+): Promise<StartStreamResponse> => {
   const response = await axios.post(`${API_URL}/api/bbb/broadcaster`, payload);
   if (response.status === 201) {
     const data = response.data as StartStreamResponse;
-    localStorage.setItem("current_stream_id", data.stream.stream_id);
+    localStorage.setItem('current_stream_id', data.stream.stream_id);
     return data;
   }
   throw new Error(`Unexpected status: ${response.status}`);
