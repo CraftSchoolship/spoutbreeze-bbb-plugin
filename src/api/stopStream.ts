@@ -1,5 +1,6 @@
-import axios from "axios";
-const API_URL = process.env.API_URL;
+import axios from 'axios';
+
+const { API_URL } = process.env;
 
 export interface StopStreamResponse {
   message: string;
@@ -7,7 +8,9 @@ export interface StopStreamResponse {
   status?: string;
 }
 
-export const stopStream = async (streamId: string): Promise<StopStreamResponse> => {
+export const stopStream = async (
+  streamId: string,
+): Promise<StopStreamResponse> => {
   const res = await axios.delete(`${API_URL}/api/bbb/broadcaster/${streamId}`);
   return res.data as StopStreamResponse;
 };

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios from 'axios';
 
 export interface MeetingDetailsRes {
   internal_meeting_id: string;
@@ -20,31 +20,28 @@ export interface MeetingDetailsRes {
   created_at: string;
 }
 
-const API_URL = process.env.API_URL;
+const { API_URL } = process.env;
 
-export const fetchMeetingDetails = async (internalMeetingId: string): Promise<MeetingDetailsRes> => {
-  try {
-    const response = await axios.get<MeetingDetailsRes>(
-      `${API_URL}/api/bbb/meeting/${internalMeetingId}`,
-      {
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+export const fetchMeetingDetails = async (
+  internalMeetingId: string,
+): Promise<MeetingDetailsRes> => {
+  const response = await axios.get<MeetingDetailsRes>(
+    `${API_URL}/api/bbb/meeting/${internalMeetingId}`,
+    {
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        'Content-Type': 'application/json',
+      },
+    },
+  );
 
-    if (response.status === 200) {
-      console.log("Meeting details fetched successfully:", response.data);
-      return response.data;
-    } else {
-      console.error("Failed to fetch meeting details:", response.statusText);
-      throw new Error(
-        `Failed to fetch meeting details: ${response.statusText}`
-      );
-    }
-  } catch (error) {
-    console.error("Error fetching meeting details:", error);
-    throw error;
+  if (response.status === 200) {
+    // console.log('Fetched meeting details:', response.data);
+    return response.data;
   }
+
+  // console.error('Failed to fetch meeting details:', response.statusText);
+  throw new Error(
+    `Failed to fetch meeting details: ${response.statusText}`,
+  );
 };

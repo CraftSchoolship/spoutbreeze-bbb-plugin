@@ -1,5 +1,6 @@
-import axios from "axios";
-const API_URL = process.env.API_URL;
+import axios from 'axios';
+
+const { API_URL } = process.env;
 
 export interface BroadcastStatus {
   stream_id: string;
@@ -12,7 +13,11 @@ export interface BroadcastStatus {
   error?: string;
 }
 
-export const fetchBroadcastStatus = async (streamId: string): Promise<BroadcastStatus> => {
-  const res = await axios.get(`${API_URL}/api/bbb/broadcaster/${streamId}`);
-  return res.data as BroadcastStatus;
+export const fetchBroadcastStatus = async (
+  streamId: string,
+): Promise<BroadcastStatus> => {
+  const { data } = await axios.get<BroadcastStatus>(
+    `${API_URL}/api/bbb/broadcaster/${streamId}`,
+  );
+  return data;
 };

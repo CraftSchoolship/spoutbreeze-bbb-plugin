@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
+import { pluginLogger } from 'bigbluebutton-html-plugin-sdk';
 
 export type NormalizedMessage = {
   platform: string;
-  type: "message";
+  type: 'message';
   user: { id?: string; name: string };
   text: string;
   timestamp?: string;
@@ -10,7 +11,7 @@ export type NormalizedMessage = {
 };
 
 export type OutboundMessage = {
-  type: "outbound_message";
+  type: 'outbound_message';
   platform: string;
   text: string;
   user?: { id?: string; name?: string };
@@ -23,18 +24,23 @@ export const useTwitchChat = (url: string, meetingId?: string) => {
 
   useEffect(() => {
     // Build WebSocket URL with meeting_id query param
-    const wsUrl = meetingId ? `${url}?meeting_id=${encodeURIComponent(meetingId)}` : url;
+    const wsUrl = meetingId
+      ? `${url}?meeting_id=${encodeURIComponent(meetingId)}`
+      : url;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("[Gateway WS] Connected", meetingId ? `with meeting_id=${meetingId}` : "");
+      pluginLogger.info(
+        '[Gateway WS] Connected',
+        meetingId ? `with meeting_id=${meetingId}` : '',
+      );
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data && data.type === "message" && data.platform && data.text) {
+        if (data && data.type === 'message' && data.platform && data.text) {
           setMessages((prev) => [...prev, data as NormalizedMessage]);
         }
       } catch {
@@ -43,11 +49,11 @@ export const useTwitchChat = (url: string, meetingId?: string) => {
     };
 
     ws.onerror = (error) => {
-      console.error("[Gateway WS] Error:", error);
+      pluginLogger.error('[Gateway WS] Error:', error);
     };
 
     ws.onclose = () => {
-      console.log("[Gateway WS] Disconnected");
+      pluginLogger.info('[Gateway WS] Disconnected');
     };
 
     return () => {
@@ -61,7 +67,7 @@ export const useTwitchChat = (url: string, meetingId?: string) => {
   const sendMessage = (payload: OutboundMessage) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(payload));
-      console.log("[Gateway WS] Outbound:", payload);
+      pluginLogger.info('[Gateway WS] Outbound:', payload);
     }
   };
 
