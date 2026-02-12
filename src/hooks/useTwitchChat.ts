@@ -81,22 +81,20 @@ export const useTwitchChat = (url: string, meetingId?: string) => {
 
   useEffect(() => {
     // Don't connect until we have a meetingId
-    if (!meetingId) {
-      return;
-    }
-    
-    connect();
+    if (meetingId) {
+      connect();
 
-    return () => {
-      // Cleanup on unmount
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
+      return () => {
+        // Cleanup on unmount
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        if (wsRef.current) {
+          wsRef.current.close();
+          wsRef.current = null;
+        }
+      };
+    }
   }, [url, meetingId]);
 
   const sendMessage = (payload: OutboundMessage) => {
