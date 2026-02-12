@@ -80,6 +80,11 @@ export const useTwitchChat = (url: string, meetingId?: string) => {
   };
 
   useEffect(() => {
+    // Don't connect until we have a meetingId
+    if (!meetingId) {
+      return;
+    }
+    
     connect();
 
     return () => {
