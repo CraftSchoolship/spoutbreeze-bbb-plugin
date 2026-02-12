@@ -95,6 +95,7 @@ export const useTwitchChat = (url: string, meetingId?: string) => {
         }
       };
     }
+    return undefined;
   }, [url, meetingId]);
 
   const sendMessage = (payload: OutboundMessage) => {
