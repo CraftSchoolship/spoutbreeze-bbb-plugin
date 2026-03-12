@@ -9,6 +9,10 @@ import { startStream } from '../api/startStream';
 import { fetchBroadcastStatus } from '../api/broadcastStatus';
 import { stopStream } from '../api/stopStream';
 import {
+  connectFacebookGateway,
+  disconnectFacebookGateway,
+} from '../api/facebookGateway';
+import {
   fetchFacebookStatus,
   fetchFacebookPages,
   facebookGoLive,
@@ -170,6 +174,11 @@ export const useStreamManager = () => {
       let rtmpUrl: string;
       let streamKey: string;
       let platform: string;
+      let facebookGatewayPayload: {
+        liveStreamId: string;
+        liveVideoId: string;
+        target: string;
+      } | null = null;
 
       if (isFacebookDestination(selectedEndpointId)) {
         // ── Facebook 2-step flow ──
@@ -193,6 +202,12 @@ export const useStreamManager = () => {
         setFbLiveTarget(goLiveRes.target);
         localStorage.setItem('fb_live_video_id', goLiveRes.live_video_id);
         localStorage.setItem('fb_live_target', goLiveRes.target);
+
+        facebookGatewayPayload = {
+          liveStreamId: goLiveRes.live_video_id,
+          liveVideoId: goLiveRes.live_video_id,
+          target: goLiveRes.target,
+        };
 
         rtmpUrl = goLiveRes.rtmp_url;
         streamKey = goLiveRes.stream_key;
@@ -228,6 +243,27 @@ export const useStreamManager = () => {
       setCurrentStreamId(sid);
       setIsStreaming(true);
       localStorage.setItem('current_stream_id', sid);
+
+      if (facebookGatewayPayload) {
+        try {
+          await connectFacebookGateway({
+            userId: meetingDetails.user_id,
+            meetingId: meetingDetails.meeting_id,
+            liveStreamId: facebookGatewayPayload.liveStreamId,
+            liveVideoId: facebookGatewayPayload.liveVideoId,
+            target: facebookGatewayPayload.target,
+          });
+          pluginLogger.info(
+            `Facebook chat-gateway connected for meeting ${meetingDetails.meeting_id}`,
+          );
+        } catch (gatewayError) {
+          pluginLogger.error(
+            'Facebook stream started but chat-gateway connect failed',
+            gatewayError,
+          );
+        }
+      }
+
       setStatusMessage(`Broadcast started (stream_id: ${sid})`);
       pollStatus(sid);
     } catch (error: unknown) {
@@ -272,6 +308,20 @@ export const useStreamManager = () => {
         } catch (e) {
           pluginLogger.error('Failed to end Facebook live:', e);
           // Don't block the stop — broadcaster is already stopped
+        }
+      }
+
+      if (meetingDetails) {
+        try {
+          await disconnectFacebookGateway(meetingDetails.user_id);
+          pluginLogger.info(
+            `Facebook chat-gateway disconnected for user ${meetingDetails.user_id}`,
+          );
+        } catch (gatewayError) {
+          pluginLogger.error(
+            'Failed to disconnect Facebook from chat-gateway',
+            gatewayError,
+          );
         }
       }
 
