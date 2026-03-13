@@ -131,7 +131,14 @@ export const useChatProcessor = (
     // Format messages with platform-specific icon
     const formatted = newFrames.map((m) => {
       const platformName = m.platform.charAt(0).toUpperCase() + m.platform.slice(1);
-      const icon = m.platform === 'youtube' ? '🔴' : m.platform === 'facebook' ? '🔵' : '🟢';
+      let icon = '🟢';
+
+      if (m.platform === 'youtube') {
+        icon = '🔴';
+      } else if (m.platform === 'facebook') {
+        icon = '🔵';
+      }
+
       return `**${icon} [${platformName}]**\n**${
         m.user?.name || 'unknown'
       }**: ${m.text}`;
