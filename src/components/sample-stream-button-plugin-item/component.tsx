@@ -34,6 +34,8 @@ function SampleStreamButtonPluginItem({
     meetingDetails,
     statusMessage,
     streamEndpoints,
+    facebookDestinations,
+    facebookConnected,
     selectedEndpointId,
     isLoading,
     setSelectedEndpointId,
@@ -115,6 +117,8 @@ function SampleStreamButtonPluginItem({
       onClose={handleCloseModal}
       isLoading={isLoading}
       streamEndpoints={streamEndpoints}
+      facebookDestinations={facebookDestinations}
+      facebookConnected={facebookConnected}
       selectedEndpointId={selectedEndpointId}
       onEndpointChange={setSelectedEndpointId}
       onSubmit={handleFormSubmit}

@@ -32,7 +32,7 @@ export const useChatProcessor = (
     }
   }, [loadedChatMessages, isInitialized]);
 
-  // BBB → Gateway (Platform) using "/twitch ..." or "/youtube ..."
+  // BBB → Gateway (Platform) using "/twitch ...", "/youtube ...", or "/facebook ..."
   useEffect(() => {
     if (!isInitialized || !loadedChatMessages?.data || !currentUser?.data) {
       return;
@@ -86,6 +86,18 @@ export const useChatProcessor = (
           sendMessage(payload);
           pluginLogger.info(`[ChatProcessor] Sent to YouTube: ${text}`);
         }
+      } else if (chatMessage.message?.startsWith('/facebook')) {
+        // Command: /facebook Hello world
+        const text = chatMessage.message.replace(/^\/facebook\s*/, '').trim();
+        if (text) {
+          const payload: OutboundMessage = {
+            type: 'outbound_message',
+            platform: 'facebook',
+            text,
+          };
+          sendMessage(payload);
+          pluginLogger.info(`[ChatProcessor] Sent to Facebook: ${text}`);
+        }
       }
 
       updatedProcessedIds.add(chatMessage.messageId);
@@ -119,7 +131,14 @@ export const useChatProcessor = (
     // Format messages with platform-specific icon
     const formatted = newFrames.map((m) => {
       const platformName = m.platform.charAt(0).toUpperCase() + m.platform.slice(1);
-      const icon = m.platform === 'youtube' ? '🔴' : '🟢';
+      let icon = '🟢';
+
+      if (m.platform === 'youtube') {
+        icon = '🔴';
+      } else if (m.platform === 'facebook') {
+        icon = '🔵';
+      }
+
       return `**${icon} [${platformName}]**\n**${
         m.user?.name || 'unknown'
       }**: ${m.text}`;
