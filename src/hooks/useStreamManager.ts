@@ -92,7 +92,7 @@ export const useStreamManager = () => {
               if (page.is_active) {
                 destinations.push({
                   id: `fb:${page.page_id}`,
-                  label: `📘 Facebook — Page (${page.page_id})`,
+                  label: `📘 Facebook — ${page.page_name || `Page ${page.page_id}`}`,
                   target: page.page_id,
                 });
               }
