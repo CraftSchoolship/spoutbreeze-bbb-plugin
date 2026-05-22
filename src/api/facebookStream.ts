@@ -18,6 +18,7 @@ export interface FacebookStatus {
 
 export interface FacebookPage {
   page_id: string;
+  page_name: string | null;
   is_active: boolean;
 }
 
